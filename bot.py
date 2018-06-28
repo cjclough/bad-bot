@@ -5,7 +5,7 @@ import random
 from discord.ext import commands
 
 # set config variables
-with open("config/config.json") as cfg:
+with open("config.json") as cfg:
     config = json.load(cfg)
 	
 token = config["token"]
