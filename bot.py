@@ -34,7 +34,7 @@ async def on_ready():
 async def greet(ctx):
     await ctx.send("Hello, world.")
 
-# get current scrobble
+# get current scrobble or last scrobble
 @bot.command()
 async def np(ctx):
     if len(ctx.message.content) < 5:
