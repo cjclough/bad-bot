@@ -28,6 +28,7 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('------')
+    await bot.change_presence(activity=discord.Game("in API hell"))
 
 # greet
 @bot.command()
@@ -45,11 +46,10 @@ async def np(ctx):
                 user = network.get_user(sender)
                 track = user.get_now_playing()
                 if track:
-                    embed = discord.Embed(title=":notes: Now playing :notes:", description=str(track.artist) + " - " + str(track.title), color=0x535660)
-                    await ctx.send(embed=embed)
-                else:
-                    track = user.get_recent_tracks(limit=1)[0]
-                    embed = discord.Embed(title=":notes: Last played :notes:", description=str(track.track.artist) + " - " + str(track.track.title), color=0x535660)
+                    embed = discord.Embed(title=":notes: Now playing :notes:", description="*"+str(track.title)+"*" + "\nby " + "**"+str(track.artist)+"**", color=0x535660)
+                    album = track.get_album()
+                    image = album.get_cover_image(size=1)
+                    embed.set_thumbnail(url=image)
                     await ctx.send(embed=embed)
             else:
                 await ctx.send("No valid username found. To set your username, use .npset")
@@ -58,10 +58,6 @@ async def np(ctx):
         track = user.get_now_playing()
         if track:
             embed = discord.Embed(title=":notes: Now playing :notes:", description=str(track.artist) + " - " + str(track.title), color=0x535660)
-            await ctx.send(embed=embed)
-        else:
-            track = user.get_recent_tracks(limit=1)[0]
-            embed = discord.Embed(title=":notes: Last played :notes:", description=str(track.track.artist) + " - " + str(track.track.title), color=0x535660)
             await ctx.send(embed=embed)
 
 # set last.fm username
