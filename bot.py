@@ -7,7 +7,6 @@ import urllib
 
 from discord.ext import commands
 
-
 # set config variables
 with open("config.json") as cfg:
     config = json.load(cfg)
@@ -30,35 +29,109 @@ async def on_ready():
     print('------')
     await bot.change_presence(activity=discord.Game("in API hell"))
 
+@bot.event
+async def on_message(message):  
+    await bot.process_commands(message)
+
+    if message.content.startswith("this is so sad"):
+        await message.channel.send("alexa play despacito")
+
+    if message.content.startswith("ping"):
+        await message.channel.send("pong!")
+
 # greet
 @bot.command()
 async def greet(ctx):
     await ctx.send("Hello, world.")
 
-# get current scrobble or last scrobble
+# roll dice
+@bot.command()
+async def roll(ctx, r: str):
+    # split into usable params
+    params = r.split('d')
+    try:
+        multiplier = int(params[0])
+        sides = int(params[1])
+    except ValueError:
+        await ctx.send("ERROR: invalid params")
+    else:
+        roll = 0
+
+        for x in range(multiplier):
+            roll += random.randint(1,sides)
+        
+        if multiplier > 1:
+            await ctx.send("The dice are cast... " + "**"+str(roll)+"**!")
+        else:
+            await ctx.send("The die is cast..." + "**"+str(roll)+"**!") 
+       
+
+# get current scrobble
 @bot.command()
 async def np(ctx):
-    if len(ctx.message.content) < 5:
-        with open('users.json', 'r+') as users:
-            names = json.load(users)
-            sender = names[str(ctx.message.author)]
-            if sender:
-                user = network.get_user(sender)
-                track = user.get_now_playing()
-                if track:
-                    embed = discord.Embed(title=":notes: Now playing :notes:", description="*"+str(track.title)+"*" + "\nby " + "**"+str(track.artist)+"**", color=0x535660)
-                    album = track.get_album()
-                    image = album.get_cover_image(size=1)
-                    embed.set_thumbnail(url=image)
-                    await ctx.send(embed=embed)
-            else:
-                await ctx.send("No valid username found. To set your username, use .npset")
-    else:
-        user = network.get_user(ctx.message.content[4:])
+    #open users.json
+    with open('users.json', 'r+') as users:
+        names = json.load(users)
+
+    sender = names[str(ctx.message.author)]
+    if sender:
+        # data fields
+        track_title = " "
+        track_album = " "
+        track_artist = " "
+        album_cover = " "
+
+        user = network.get_user(sender)
+        
         track = user.get_now_playing()
-        if track:
-            embed = discord.Embed(title=":notes: Now playing :notes:", description=str(track.artist) + " - " + str(track.title), color=0x535660)
-            await ctx.send(embed=embed)
+        if track == None:
+            track = user.get_recent_tracks(cacheable=False,limit=2)[0]
+            track_title = str(track.track.title)
+
+            try: 
+                track_album = str(track.album)
+                pass
+            except AttributeError:
+                track_album = "[unknown]"
+                pass
+
+            track_artist = str(track.track.artist)
+
+            try: 
+                album_cover = track.track.get_cover_image(size=1)
+                pass
+            except AttributeError:
+                # todo: make filler cover
+                pass 
+        else:
+            track_title = str(track.title)
+
+            try: 
+                track_album = str(track.get_album().get_name())
+                pass
+            except AttributeError:
+                track_album = "[unknown]"
+                pass
+
+            track_artist = str(track.artist)
+
+            try: 
+                album_cover = track.get_album().get_cover_image(size=1)
+                pass
+            except AttributeError:
+                # todo: make filler cover
+                pass 
+
+        # make the embed
+        embed = discord.Embed(title="Now Playing",description=" ", color=0x535660)
+        embed.add_field(name=track_title,value="\nfrom " + "*"+track_album+"*"+"\nby " + track_artist,inline=True)
+
+        if album_cover:
+            embed.set_thumbnail(url=album_cover)                
+
+        await ctx.send(embed=embed)       
+    else:
+        await ctx.send("No valid username found. To set your username, use .npset")
 
 # set last.fm username
 @bot.command()
@@ -68,7 +141,7 @@ async def npset(ctx):
         user.get_registered()
         pass
     except pylast.WSError:
-        await ctx.send("\nInvalid username. Try again.")
+        await ctx.send("\nInvalid username.")
         pass
     else:
         with open('users.json', 'r') as users:
@@ -80,6 +153,37 @@ async def npset(ctx):
             json.dump(names, users)
 
         await ctx.send("Username set.")
+
+@bot.command()
+async def weekly(ctx, t: str):
+    with open('users.json', 'r+') as users:
+        names = json.load(users)
+
+    sender = names[str(ctx.message.author)]
+
+    if sender:
+        user = network.get_user(sender)
+
+        if t == "albums":
+            query = user.get_top_albums(period='7day', limit=5)
+        elif t == "tracks":
+            query = user.get_top_tracks(period='7day', limit=5)
+        elif t == "artists":
+            query = user.get_top_artists(period='7day', limit=5)
+        else:
+            await ctx.send("Invalid parameter.")
+            return
+
+        output = "**Top 5 "+t.capitalize()+" (weekly):**"
+        
+        for x in range(len(query)):
+                output+="\n"+str(x+1)+". "+str(query[x].item)
+
+        await ctx.send(output)
+
+    else:
+        await ctx.send("No valid username found. To set your username, use .npset")       
+
 
 # get first result from youtube query
 @bot.command()
