@@ -33,11 +33,15 @@ async def on_ready():
 async def on_message(message):  
     await bot.process_commands(message)
 
-    if message.content.startswith("this is so sad"):
+    if message.content.lower().startswith("this is so sad"):
         await message.channel.send("alexa play despacito")
 
-    if message.content.startswith("ping"):
+    if message.content.lower().startswith("ping"):
         await message.channel.send("pong!")
+
+    if "john" in message.content.lower():
+        emoji = (bot.get_emoji(439200062795415562))
+        await message.channel.send(emoji)
 
 # greet
 @bot.command()
@@ -75,7 +79,7 @@ async def np(ctx):
 
     sender = names[str(ctx.message.author)]
     if sender:
-        # data fields
+        # data fields 
         track_title = " "
         track_album = " "
         track_artist = " "
@@ -178,6 +182,7 @@ async def weekly(ctx, t: str):
         
         for x in range(len(query)):
                 output+="\n"+str(x+1)+". "+str(query[x].item)
+
 
         await ctx.send(output)
 
