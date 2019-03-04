@@ -43,7 +43,7 @@ async def update_now_playing():
         track = requests.get('http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&api_key='+api_key+'&user=networkdrift'+'&limit=1&format=json').json()
         title = track['recenttracks']['track'][0]['name']
         artist = track['recenttracks']['track'][0]['artist']['#text']
-        await bot.change_presence(activity=discord.Game(artist + ' – ' + title))
+        await bot.change_presence(activity=discord.Activity(name=artist + ' – ' + title, type=2))
         await asyncio.sleep(5)
 
 
