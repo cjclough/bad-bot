@@ -8,6 +8,7 @@ import requests
 import urllib
 
 from discord.ext import commands
+from lxml import html
 from PIL import Image
 from io import BytesIO
 
@@ -19,6 +20,7 @@ token = config["token"]
 api_key = config["key"]
 
 bot = commands.Bot(command_prefix='.')
+
 
 #----------FUNCTIONS----------#
 def select_period(period):
@@ -39,12 +41,49 @@ def select_limit(size):
 
 async def update_now_playing():
     await bot.wait_until_ready()
+    delay = [120, 0]
+    titles = ['title1', 'title2']
     while not bot.is_closed():
-        track = requests.get('http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&api_key='+api_key+'&user=networkdrift'+'&limit=1&format=json').json()
-        title = track['recenttracks']['track'][0]['name']
-        artist = track['recenttracks']['track'][0]['artist']['#text']
-        await bot.change_presence(activity=discord.Activity(name=artist + ' – ' + title, type=2))
-        await asyncio.sleep(5)
+        tracks = requests.get('http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&api_key='+api_key+'&user=networkdrift'+'&limit=2&format=json').json()
+        try:
+            track = tracks['recenttracks']['track'][0]
+            np = track['@attr']['nowplaying'] if '@attr' in track else ''
+        except KeyError:
+            np = False
+            delay = [120, 0]
+
+        if np:
+            response = requests.get(track['url'])
+            page = html.fromstring(response.content)
+            try:
+                duration = page.xpath("//span[@class='header-title-duration']/text()")[0].strip('(').strip(')')
+            except IndexError:
+                delay = [20, 0]
+            else:
+                mins, secs = duration.split(':')
+                new_delay = int(mins)*60+int(secs)-20
+                new_title = track['name']
+                if new_delay not in delay and new_title not in titles:
+                    delay.pop()
+                    delay.append(new_delay)
+                    delay.reverse()
+                    titles.pop()
+                    titles.append(new_title)
+                    titles.reverse()
+                elif new_delay in delay and titles[0] != new_title:
+                    delay[0] = new_delay
+                    titles[0] = new_title
+                else:
+                    if delay[0] is not 5:
+                        delay.reverse()
+                        delay[0] = 5
+                        
+                await bot.change_presence(activity=discord.Activity(name=titles[0], type=2))
+        else:
+            delay = [120, 0]
+            await bot.change_presence()
+
+        await asyncio.sleep(delay[0])
 
 
 #----------EVENTS----------#
@@ -61,19 +100,20 @@ async def on_message(message):
         return
 
     if "john" in message.content.lower():
+        asyncio.sleep(1)
         emoji = (bot.get_emoji(439200062795415562))
         await message.channel.send(emoji)
 
 
 #----------COMMANDS----------#
 # greet
-@bot.command()
+@bot.command(pass_context=True)
 async def greet(ctx):
-    await ctx.send("Hello, world.")
+    await ctx.send("hello, world.")
 
 
 # roll dice
-@bot.command()
+@bot.command(pass_context=True)
 async def roll(ctx, r: str):
     # split into usable params
     params = r.split('d')
@@ -107,6 +147,9 @@ async def fm(ctx):
         return
 
     track = requests.get('http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&api_key='+api_key+'&user='+sender+'&limit=1&format=json').json()
+
+    with open("track.json", "w") as u:
+        json.dump(track, u, indent=4)
 
     title = track['recenttracks']['track'][0]['name']
     album = track['recenttracks']['track'][0]['album']['#text']
@@ -185,13 +228,13 @@ async def fmset(ctx, username=None):
     users[str(ctx.message.author.id)] = str(username)
 
     with open("./config/users.json", "w") as u:
-        json.dump(users, u, indent= 4, sort_keys=True)
+        json.dump(users, u, indent=4, sort_keys=True)
 
     await ctx.send('set ' + ctx.message.author.name + '\'s last.fm username to ' + username + '.')
 
 
 # get first result from youtube query
-@bot.command()
+@bot.command(pass_context=True)
 async def yt(ctx):
     query = urllib.parse.quote(ctx.message.content[4:])
     search = urllib.request.urlopen("https://www.youtube.com/results?search_query=" + query)
@@ -200,7 +243,7 @@ async def yt(ctx):
 
 
 # log out
-@bot.command()
+@bot.command(pass_context=True)
 # @is_owner()
 async def quit(ctx):
     await bot.logout()
